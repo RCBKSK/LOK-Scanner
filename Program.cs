@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,365 +19,191 @@ namespace lok_wss
 {
     internal class Program
     {
-        static int iterations = 0;
-        private static lokContext _context;
+        //private static lokContext _context;
         private static IServiceProvider _services;
-        private const double D33Px = 941;
-        private const double D33Py = 1289;
+
+        private static bool killThread = false;
+
+        private static Timer _c24Timer;
+
         private static void Main()
         {
             _services = ConfigureServices();
-            _context = _services.GetRequiredService<lokContext>();
-
-            for (int i = 0; i < 1; i++)
-            {
-                Thread c14Thread = new Thread(new ThreadStart(C14));
-                // Start secondary thread  
-                c14Thread.Start();
-
-                Thread c24Thread = new Thread(new ThreadStart(c24));
-                // Start secondary thread  
-                c24Thread.Start();
-
-            }
 
 
+            Thread c14Thread = new(C14.C14Scan);
+            c14Thread.Start();
+
+            //Thread c24Thread = new(C24); 
+
+            Thread cvcThread = new(CVC.CVCScan);
+            cvcThread.Start();
+            // Start secondary thread  
 
             var thread = new Thread(
-                        () => { while (true) Thread.Sleep(50000); }
+                // ReSharper disable once FunctionNeverReturns
+                () =>
+                {
+                    while (true)
+                    {
+                        //if (!c14Thread.IsAlive)
+                        //{
+                        //    c14Thread = new Thread(C14.C14Scan);
+                        //    c14Thread.Start();
+                        //}
+
+                        //if (!c24Thread.IsAlive)
+                        //{
+                        //    c24Thread = new Thread(C24);
+                        //    c24Thread.Start();
+                        //}
+
+                        //if (!cvcThread.IsAlive)
+                        //{
+                        //    cvcThread = new Thread(CVC);
+                        //    cvcThread.Start();
+                        //}
+
+
+                        Thread.Sleep(300000);
+                        killThread = true;
+                        Thread.Sleep(5000);
+                        killThread = false;
+                    }
+                }
                     );
             thread.Start();
         }
 
-        private static void C14()
+       
+
+        private static void C24()
         {
-            var thisContinent = 14;
+            const int thisContinent = 24;
             try
             {
                 var exitEvent = new ManualResetEvent(false);
                 var url = new Uri("wss://socf-lok-live.leagueofkingdoms.com:443/socket.io/?EIO=4&transport=websocket");
-                using (var client = new WebsocketClient(url))
+                using var client = new WebsocketClient(url) { ReconnectTimeout = TimeSpan.FromSeconds(30) };
+                client.ReconnectionHappened.Subscribe(_ =>
                 {
-                    client.ReconnectTimeout = TimeSpan.FromSeconds(30);
-                    client.ReconnectionHappened.Subscribe(info =>
-                    {
-                        //Console.WriteLine("Reconnection happened, type: " + info.Type);
-                    });
-                    _ = client.MessageReceived.Subscribe(async msg =>
-                    {
-                        string message = msg.Text;
-                        string json = "";
-                        JObject parse = new();
+                    //Console.WriteLine("Reconnection happened, type: " + info.Type);
+                });
+                _ = client.MessageReceived.Subscribe(msg =>
+                {
+                    string message = msg.Text;
+                    string json = "";
+                    JObject parse = new();
 
-                        if (message.Contains("{"))
+                    if (message.Contains("{"))
+                    {
+                        if (message.Contains("42[\"/field/objects\","))
                         {
-                            json = ExtractJson(message[message.IndexOf("{", StringComparison.Ordinal)..]);
-                            parse = JObject.Parse(json);
+                            message = message.Replace("42[\"/field/objects\",", "");
+                            json = message.Remove(message.Length - 1, 1);
                         }
-                        if (!string.IsNullOrEmpty(parse["sid"]?.ToString()))
-                        {
-                            Console.WriteLine("Message received: " + msg);
-                        }
-                        if (msg.Text == "40") { }
                         else
                         {
-                            var mapObjects = JsonConvert.DeserializeObject<Models.Root>(json);
-
-                            if (mapObjects != null && mapObjects.objects != null && mapObjects.objects.Count != 0)
-                            {
-                                Console.WriteLine($"c{thisContinent}: " + mapObjects?.objects?.Count + " Objects received");
-                                List<Object> crystalMines = mapObjects.objects.Where(x => x.code.ToString() == "20100105").ToList();
-                                if (crystalMines.Count >= 1)
-                                    ParseCmines(crystalMines, thisContinent);
-                            }
+                            json = Helpers.ExtractJson(message[message.IndexOf("{", StringComparison.Ordinal)..]);
                         }
 
-                    });
-                    client.Start();
+                        parse = JObject.Parse(json);
+                    }
+                    if (!string.IsNullOrEmpty(parse["sid"]?.ToString()))
+                    {
+                        Console.WriteLine("Message received: " + msg);
+                    }
+                    if (msg.Text == "40") { }
+                    else
+                    {
+                        var mapObjects = JsonConvert.DeserializeObject<Models.Root>(json);
 
-                    _ = new Timer(
-                        e => MyMethod(client, thisContinent),
-                        null,
-                        TimeSpan.Zero,
-                        TimeSpan.FromSeconds(5));
+                        if (mapObjects != null && mapObjects.objects != null && mapObjects.objects.Count != 0 && mapObjects.objects.First().code != 0)
+                        {
+                            Console.WriteLine($"c{thisContinent}: " + mapObjects.objects?.Count + " Objects received");
+                            List<Object> crystalMines = mapObjects.objects.Where(x => x.code.ToString() == "20100105").ToList();
+                            if (crystalMines.Count >= 1)
+                                Helpers.ParseObjects("cmines", crystalMines, thisContinent);
+                            List<Object> treasureGoblins = mapObjects.objects.Where(x => x.code.ToString() == "20200104").ToList();
+                            if (treasureGoblins.Count >= 1)
+                                Helpers.ParseObjects("goblins", treasureGoblins, thisContinent);
+                        }
+                    }
 
-                    exitEvent.WaitOne();
-                }
+                });
+                client.Start();
+
+                _c24Timer = new Timer(
+                    _ => MyMethod(client, thisContinent, _c24Timer, exitEvent),
+                    null,
+                    TimeSpan.FromSeconds(20),
+                    TimeSpan.FromSeconds(60));
+
+                exitEvent.WaitOne();
             }
             catch (Exception ex)
             {
-                Console.WriteLine("ERROR: " + ex);
-            }
-
-        }
-
-        private static void c24()
-        {
-            var thisContinent = 24;
-            try
-            {
-                var exitEvent = new ManualResetEvent(false);
-                var url = new Uri("wss://socf-lok-live.leagueofkingdoms.com:443/socket.io/?EIO=4&transport=websocket");
-                using (var client = new WebsocketClient(url))
-                {
-                    client.ReconnectTimeout = TimeSpan.FromSeconds(30);
-                    client.ReconnectionHappened.Subscribe(info =>
-                    {
-                        //Console.WriteLine("Reconnection happened, type: " + info.Type);
-                    });
-                    _ = client.MessageReceived.Subscribe(async msg =>
-                    {
-                        string message = msg.Text;
-                        string json = "";
-                        JObject parse = new();
-
-                        if (message.Contains("{"))
-                        {
-                            if (message.Contains("42[\"/field/objects\","))
-                            {
-                                message = message.Replace("42[\"/field/objects\",", "");
-                                json = message.Remove(message.Length - 1, 1);
-                            }
-                            else
-                            {
-                                json = ExtractJson(message[message.IndexOf("{", StringComparison.Ordinal)..]);
-                            }
-
-                            parse = JObject.Parse(json);
-                        }
-                        if (!string.IsNullOrEmpty(parse["sid"]?.ToString()))
-                        {
-                            Console.WriteLine("Message received: " + msg);
-                        }
-                        if (msg.Text == "40") { }
-                        else
-                        {
-                            var mapObjects = JsonConvert.DeserializeObject<Models.Root>(json);
-
-                            if (mapObjects != null && mapObjects.objects != null && mapObjects.objects.Count != 0 && mapObjects.objects.First().code != 0)
-                            {
-                                Console.WriteLine($"c{thisContinent}: " + mapObjects?.objects?.Count + " Objects received");
-                                List<Object> crystalMines = mapObjects.objects.Where(x => x.code.ToString() == "20100105").ToList();
-                                if (crystalMines.Count >= 1)
-                                    ParseCmines(crystalMines, thisContinent);
-                            }
-                        }
-
-                    });
-                    client.Start();
-
-                    _ = new Timer(
-                        e => MyMethod(client, thisContinent),
-                        null,
-                        TimeSpan.Zero,
-                        TimeSpan.FromSeconds(1));
-
-                    exitEvent.WaitOne();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("ERROR: " + ex);
+                Discord.logError("c24", ex);
             }
         }
 
-        private static async void ParseCmines(IEnumerable<Object> mines, int thisContinent)
-        {
-
-            foreach (var mine in mines)
-            {
-                if (mine.occupied == null)
-                {
-                    try
-                    {
-                        if (!_context.crystalMine.Any(x => x.id == mine._id))
-                        {
-                            string location = mine.loc[1] + ":" + mine.loc[2];
-                            _context.crystalMine.Add(new crystalMine()
-                            {
-                                id = mine._id,
-                                continent = $"{thisContinent}",
-                                found = DateTime.UtcNow,
-                                location = location
-                            });
-                            await _context.SaveChangesAsync();
-                            postToDiscordCmine(thisContinent, mine.code.ToString(), location,
-                                mine.level.ToString(), mine.param.value.ToString());
-                        }
-                    }
-                    catch (Exception)
-                    {
-                    }
-                }
-            }
-        }
-
-        private static void MyMethod(WebsocketClient client, int continent)
+  
+        private static void MyMethod(WebsocketClient client, int continent, Timer timer, ManualResetEvent exitEvent)
         {
 
             int count = 40;
+            int startCount = 2000;
+            int endCount = 2040;
+            int iterations = 1;
             string zones = "";
-            Random rand = new Random();
 
 
-            for (int i = 0; i < count; i++)
+            if (killThread)
             {
-                int number = rand.Next(2048, 4090);
-                zones += $"{number},";
+                timer.Change(Timeout.Infinite, Timeout.Infinite);
+                client.Dispose();
+                exitEvent.Set();
+                Console.WriteLine("closed socket");
             }
-
-            zones = zones.Substring(0, zones.Length - 1);
-
-
-            Task.Run(() =>
-                client.Send("42[\"/zone/enter/list\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
-                            "]\"}]"));
-
-
-        }
-
-
-        public static async void postToDiscordCmine(int continent, string Name, string coords, string level, string value)
-        {
-            var continentUrl = "";
-            switch (continent)
+            if (client.IsRunning)
             {
-                case 24:
-                    continentUrl = "https://discord.com/api/webhooks/948937096461156432/-EPALnQkk0Ow9KKA7pcqgh0yZOYvDP249ePeOBiNV4ixG6ks_SV65uK-QIHsu8Vgd5Lw";
-                    break;
-                case 14:
-                    continentUrl = "https://discord.com/api/webhooks/948951511591960657/YsaTGH9ffYRMHgut6QX1tfjJJjB2Z9d9M_ACVXDiLaouF47yHMsvXt9jWT89Eg4VshmA";
-                    break;
-            }
-            try
-            {
-                using (DiscordWebhookClient client = new(
-                continentUrl)) //holdnut uoa
+
+                for (int i = 0; i < 50; i++)
                 {
-
-                    var distance = string.Format("{0:0}", GetDistance(D33Px, D33Py, double.Parse(coords.Split(":")[0]),
-                        double.Parse(coords.Split(":")[1])));
-
-                    EmbedBuilder embed = new EmbedBuilder
+                    for (int y = startCount; y < endCount; y++)
                     {
-                        Title = $"L{level} CMine Found",
-                        Description = coords,
-                        ThumbnailUrl = "https://i.imgur.com/d9ICitd.png"
-                    };
 
-
-                    EmbedFieldBuilder detailFieldLevel = new() { IsInline = true, Name = "Level", Value = level };
-                    EmbedFieldBuilder detailFieldCoords = new() { IsInline = true, Name = "Value", Value = value };
-                    if (continent == 14)
-                    {
-                        EmbedFieldBuilder detailFieldDistance = new() { IsInline = true, Name = "Distance from AC", Value = distance + "km" };
-                        embed.AddField(detailFieldLevel).AddField(detailFieldCoords).AddField(detailFieldDistance);
+                        zones += $"{y},";
                     }
-                    else
-                    {
-                        embed.AddField(detailFieldLevel).AddField(detailFieldCoords);
-                    }
-                    await client.SendMessageAsync("", embeds: new[] { embed.Build() });
-
-                    // Webhooks are able to send multiple embeds per message
-                    // As such, your embeds must be passed as a collection.
-
-
-
-                }
-            }
-            catch (Exception)
-            {
-
-            }
-        }
-
-        public static async void postToDiscordGoblins(int continent, string Name, string coords, string level, string value)
-        {
-            try
-            {
-                var continentUrl = "";
-                switch (continent)
-                {
-                    case 24:
-                        continentUrl = "https://discord.com/api/webhooks/948940283305918544/yiKPAUA1DH_2miukIJ77Nt5866aALYt2RbOv68WFOvY_Zh3AJDNf5tHr-4EWSwPAX3Sf";
-                        break;
-                    case 14:
-                        continentUrl = "https://discord.com/api/webhooks/948952111129980989/4YqpL_K8ItDURGkm0JVgfhoQPunLvhb6mOfUdZgB_PjWlZjlmdsDrgumLhtZNSYR4Sl9";
-                        break;
+                    zones = zones.Substring(0, zones.Length - 1);
+                    Task.Run(() =>
+                        client.Send("42[\"/zone/enter/list\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
+                                    "]\"}]"));
+                    Console.WriteLine($"{continent}: Requested {startCount} to {endCount}");
+                    startCount = endCount;
+                    endCount += count;
+                    Thread.Sleep(1000);
                 }
 
-                using (DiscordWebhookClient client = new(
-                    continentUrl)) //holdnut uoa
-                {
-                    EmbedFieldBuilder detailFieldLevel = new() { IsInline = true, Name = "Level", Value = level };
-                    EmbedFieldBuilder detailFieldCoords = new() { IsInline = true, Name = "Health", Value = value };
-
-                    EmbedBuilder embed = new EmbedBuilder
-                    {
-                        Title = "Treasure Goblin detected",
-                        Description = coords,
-                        ThumbnailUrl = "https://i.imgur.com/d9ICitd.png"
-                    }
-                        .AddField(detailFieldLevel)
-                        .AddField(detailFieldCoords);
-
-                    // Webhooks are able to send multiple embeds per message
-                    // As such, your embeds must be passed as a collection.
-                    await client.SendMessageAsync("", embeds: new[] { embed.Build() });
-                }
-                //
-            }
-            catch (Exception)
-            {
-
             }
 
 
         }
 
 
-        public static string ExtractJson(string source)
-        {
-            var buffer = new StringBuilder();
-            var depth = 0;
+      
 
-            // We trust that the source contains valid json, we just need to extract it.
-            // To do it, we will be matching curly braces until we even out.
-            for (var i = 0; i < source.Length; i++)
-            {
-                var ch = source[i];
-                var chPrv = i > 0 ? source[i - 1] : default;
-
-                buffer.Append(ch);
-
-                // Match braces
-                if (ch == '{' && chPrv != '\\')
-                    depth++;
-                else if (ch == '}' && chPrv != '\\')
-                    depth--;
-
-                // Break when evened out
-                if (depth == 0)
-                    break;
-            }
-
-            return buffer.ToString();
-        }
+     
 
         private static IServiceProvider ConfigureServices()
         {
             return new ServiceCollection()
                 .AddSingleton<Program>()
-                .AddDbContext<lokContext>(ServiceLifetime.Transient)
+                .AddDbContext<lokContext>(ServiceLifetime.Scoped)
                 .BuildServiceProvider();
         }
 
-        private static double GetDistance(double x1, double y1, double x2, double y2)
-        {
-            return Math.Sqrt(Math.Pow((x2 - x1), 2) + Math.Pow((y2 - y1), 2));
-        }
-
+       
     }
 }
 

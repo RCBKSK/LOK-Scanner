@@ -24,10 +24,10 @@ namespace lok_wss
         {
 
             modelBuilder.Entity<crystalMine>().ToTable("crystalMines")
-               .HasKey("id");
+               .HasKey("uguid");
 
             modelBuilder.Entity<treasureGoblin>().ToTable("treasureGoblins")
-                .HasKey("id");
+                .HasKey("uguid");
 
 
 

@@ -8,6 +8,7 @@ namespace lok_wss.database.Models
 {
     public class crystalMine
     {
+        public Guid uguid { get; set; }
         public string id { get; set; }
         public string location { get; set; }
         public string continent { get; set; }
