@@ -1,11 +1,10 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Websocket.Client;
 using Object = lok_wss.Models.Object;
 
@@ -62,11 +61,14 @@ namespace lok_wss
 
                         if (mapObjects != null && mapObjects.objects != null && mapObjects.objects.Count != 0 && mapObjects.objects.First().code != 0)
                         {
+
+                            //Helpers.ParseObjects("allUnknown", mapObjects.objects.ToList(), thisContinent);
+
                             Console.WriteLine($"c{thisContinent}: " + mapObjects.objects?.Count + " Objects received");
                             List<Object> crystalMines = mapObjects.objects.Where(x => x.code.ToString() == "20100105").ToList();
                             if (crystalMines.Count >= 1)
-                                Helpers.ParseObjects("cmines", crystalMines, thisContinent);
-                            List<Object> magdar = mapObjects.objects.Where(x => x.code.ToString() == "20200205").ToList();
+                                Helpers.ParseObjects("cmines", crystalMines, thisContinent);          //20200204
+                            List<Object> magdar = mapObjects.objects.Where(x => x.code.ToString() == "20700505").ToList();
                             if (magdar.Count >= 1)
                                 Helpers.ParseObjects("magdar", magdar, thisContinent);
                         }
@@ -79,7 +81,7 @@ namespace lok_wss
                     _ => SendRequest(client, thisContinent, _cvcTimer, exitEvent),
                     null,
                     TimeSpan.FromSeconds(10),
-                    TimeSpan.FromSeconds(2));
+                    TimeSpan.FromSeconds(5));
 
                 exitEvent.WaitOne();
             }
@@ -98,7 +100,7 @@ namespace lok_wss
             if (!string.IsNullOrEmpty(leaveZones))
             {
                 Task.Run(() =>
-                    client.Send("42[\"/zone/leave/list\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
+                    client.Send("42[\"/zone/leave/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
                                 "]\"}]"));
             }
 
@@ -112,7 +114,7 @@ namespace lok_wss
             leaveZones = zones;
 
             Task.Run(() =>
-                client.Send("42[\"/zone/enter/list\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
+                client.Send("42[\"/zone/enter/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
                             "]\"}]"));
             Console.WriteLine($"{continent}: Requested {zones}");
 

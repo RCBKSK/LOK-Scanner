@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Webhook;
@@ -100,7 +101,7 @@ namespace lok_wss
             switch (continent)
             {
                 case 100002:
-                    continentUrl = "https://discord.com/api/webhooks/947903579660882020/XKT0oyiZLkmr_gEoWMh712dgnW-TQa0hsq6cbCEIyu9o5tXBTTy6pB5ozZN6SALvQw3V";
+                    continentUrl = "https://discord.com/api/webhooks/956520018248630352/vgU1tztTL1yK1hlI_hhHvaVdy7k6HAGFQCTL0GHoT_dQPfMrtG1teCJ5DgOeGPQ_93Jt";
                     break;
             }
             try
@@ -185,22 +186,71 @@ namespace lok_wss
                 logError("postDiscordGoblins", e);
             }
         }
+
+        public static async void PostToDiscordUnknown(string continent, string name, string coords, string level, string value)
+        {
+            try
+            {
+                var continentUrl = "https://discord.com/api/webhooks/955230201296597032/aOX-vm8vbqMFlCKEUq77N1Hxhpb6WGgiyLO0ZD1IDUHzMcu9lWefnla-HenEucuE-Ixr";
+
+
+                using (DiscordWebhookClient client = new(
+                    continentUrl)) 
+                {
+                    EmbedFieldBuilder detailFieldLevel = new() { IsInline = true, Name = "Level", Value = level };
+                    EmbedFieldBuilder detailFieldCoords = new() { IsInline = true, Name = "Health", Value = value };
+
+                    EmbedBuilder embed = new EmbedBuilder
+                    {
+                        Title = $"L{level} {name}",
+                        Description = coords,
+                        ThumbnailUrl = "https://i.imgur.com/d9ICitd.png",
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"Found at {DateTime.UtcNow:HH:mm} UTC"
+                        }
+                    }
+                        .AddField(detailFieldLevel)
+                        .AddField(detailFieldCoords);
+
+                    // Webhooks are able to send multiple embeds per message
+                    // As such, your embeds must be passed as a collection.
+                    await client.SendMessageAsync("", embeds: new[] { embed.Build() });
+                }
+                //
+            }
+            catch (Exception e)
+            {
+                logError("postDiscordGoblins", e);
+            }
+        }
+
         public static async void logError(string postType, Exception e)
         {
-            using (DiscordWebhookClient client = new("https://discord.com/api/webhooks/954348870098378782/7Mg9Baz0YniGBcDpVLIyf-szuvy6U4ogSh6sG_bOQrSPRGuopzwEv8h0pRKdtYC3rr-B")) //holdnut uoa
+            try
             {
-                List<Embed> postEmbeds = new List<Embed>();
-                EmbedBuilder embed = new()
+                using (DiscordWebhookClient client =
+                    new(
+                        "https://discord.com/api/webhooks/954348870098378782/7Mg9Baz0YniGBcDpVLIyf-szuvy6U4ogSh6sG_bOQrSPRGuopzwEv8h0pRKdtYC3rr-B")) //holdnut uoa
                 {
-                    Title = $"{postType}",
-                    Description = e.Message,
-                    Author = new EmbedAuthorBuilder()
+                    List<Embed> postEmbeds = new List<Embed>();
+                    EmbedBuilder embed = new()
                     {
-                        Name = $"{DateTime.UtcNow:g}"
-                    },
-                };
-                postEmbeds.Add(embed.Build());
-                await client.SendMessageAsync("", embeds: postEmbeds);
+                        Title = $"{postType}",
+                        Description = e.Message,
+                        Author = new EmbedAuthorBuilder()
+                        {
+                            Name = $"{DateTime.UtcNow:g}"
+                        },
+                    };
+                    postEmbeds.Add(embed.Build());
+                    await client.SendMessageAsync("", embeds: postEmbeds);
+                    Thread.Sleep(5000);
+                }
+            }
+            catch (Exception)
+            {
+                Thread.Sleep(5000);
             }
         }
     }

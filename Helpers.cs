@@ -11,6 +11,7 @@ namespace lok_wss
     {
         public static async void ParseObjects(string type, IEnumerable<Models.Object> objects, int thisContinent)
         {
+            checkObjects(objects.ToList(), thisContinent.ToString());
 
             foreach (var gameObject in objects)
             {
@@ -71,13 +72,11 @@ namespace lok_wss
                                 await _context.SaveChangesAsync();
                                 break;
 
-
-
                             case "magdar":
-                                    Discord.PostToDiscordMagdar(thisContinent, gameObject.code.ToString(), location,
+                                Discord.PostToDiscordMagdar(thisContinent, gameObject.code.ToString(), location,
                                         gameObject.level.ToString(), gameObject.param.value.ToString());
-
                                     break;
+
                         }
                     }
                 }
@@ -122,6 +121,111 @@ namespace lok_wss
         public static double GetDistance(double x1, double y1, double x2, double y2)
         {
             return Math.Sqrt(Math.Pow((x2 - x1), 2) + Math.Pow((y2 - y1), 2));
+        }
+
+
+        public static void checkObjects(List<Models.Object> mapObjects, string thisContinent)
+        {
+            var objects = mapObjects;
+
+            var deathkar = objects.Where(x => x.code.ToString() == "20200201");
+            var greenDrag = objects.Where(x => x.code.ToString() == "20200202");
+            var redDrag = objects.Where(x => x.code.ToString() == "20200203");
+            var goldDrag = objects.Where(x => x.code.ToString() == "20200204");
+
+
+            var player = objects.Where(x => x.code.ToString() == "20300101");
+
+            var allianceCenter = objects.Where(x => x.code.ToString() == "20600101");
+            var allianceTower =objects.Where(x => x.code.ToString() == "20600102");
+            var allianceOutpost = objects.Where(x => x.code.ToString() == "20600103");
+
+            var shrine1 = objects.Where(x => x.code.ToString() == "20400101");
+            var shrine2 = objects.Where(x => x.code.ToString() == "20400201");
+            var shrine3 = objects.Where(x => x.code.ToString() == "20400301");
+            var shrine4 = objects.Where(x => x.code.ToString() == "20400401");
+
+
+            var farm = objects.Where(x => x.code.ToString() == "20100101");
+            var lumber = objects.Where(x => x.code.ToString() == "20100102");
+            var quarry = objects.Where(x => x.code.ToString() == "20100103");
+            var goldMine = objects.Where(x => x.code.ToString() == "20100104");
+            var cMine = objects.Where(x => x.code.ToString() == "20100105");
+
+            //var cvcFarm = objects.Where(x => x.code.ToString() == "20700405");
+            //var cvcLumber = objects.Where(x => x.code.ToString() == "20700602");
+            //var cvcQuarry = objects.Where(x => x.code.ToString() == "20700603");
+            var cvcGoldMine = objects.Where(x => x.code.ToString() == "20700604");
+
+            var orc = objects.Where(x => x.code.ToString() == "20200101");
+            var skeleton = objects.Where(x => x.code.ToString() == "20200102");
+            var golem = objects.Where(x => x.code.ToString() == "20200103");
+            var goblin = objects.Where(x => x.code.ToString() == "20200104");
+
+            var cvcCyclops = objects.Where(x => x.code.ToString() == "20700407");
+
+
+            var cvcMagdar = objects.Where(x => x.code.ToString() == "20700505");
+
+
+            var charmStone = objects.Where(x => x.code.ToString() == "20500101");
+            var charmAttack = objects.Where(x => x.code.ToString() == "20500102");
+            var charmLumber = objects.Where(x => x.code.ToString() == "20500103");
+            var charmLoad = objects.Where(x => x.code.ToString() == "20500104");
+
+
+            var alianceBuilding = objects.Where(x => x.code.ToString() == "20600101");
+            var whatsLeft = objects
+                .Except(farm)
+                .Except(lumber)
+                .Except(quarry)
+                .Except(goldMine)
+                .Except(skeleton)
+                .Except(orc)
+                .Except(golem)
+                .Except(goblin)
+                .Except(player)
+                .Except(alianceBuilding)
+                .Except(deathkar)
+                .Except(greenDrag)
+                .Except(redDrag)
+                .Except(goldDrag)
+                .Except(allianceCenter)
+                .Except(allianceOutpost)
+                .Except(allianceTower)
+                .Except(shrine1)
+                .Except(shrine2)
+                .Except(shrine3)
+                .Except(shrine4)
+                .Except(charmStone)
+                .Except(charmAttack)
+                .Except(charmLumber)
+                .Except(charmLoad)
+                .Except(cMine)
+                //.Except(cvcFarm)
+                //.Except(cvcLumber)
+                //.Except(cvcQuarry)
+                .Except(cvcGoldMine)
+                .Except(cvcCyclops)
+                .Where(x => x.code != 0).ToList();
+
+           
+
+
+            foreach (var unknownObject in whatsLeft)
+            {
+                switch (unknownObject.level)
+                {
+                    case 1:
+                    case 2:
+                    case 3:
+                        //Discord.PostToDiscordUnknown(thisContinent, unknownObject.code.ToString(), unknownObject.loc[1] + ":" + unknownObject.loc[2], unknownObject.level.ToString(), unknownObject.param.value.ToString());
+
+                        break;
+                }
+            }
+
+
         }
 
     }

@@ -10,17 +10,16 @@ using Object = lok_wss.Models.Object;
 
 namespace lok_wss
 {
-    public static class C14
+    public static class C24
     {
-        private static Timer _c14Timer;
-        private static string _leaveZones = "";
+        private static Timer _c24Timer;
+        public static string LeaveZones = "";
 
-        public static void C14Scan()
+        public static void C24Scan()
         {
-            const int thisContinent = 14;
+            const int thisContinent = 24;
             try
             {
-
                 var exitEvent = new ManualResetEvent(false);
                 var url = new Uri("wss://socf-lok-live.leagueofkingdoms.com/socket.io/?EIO=4&transport=websocket");
                 using var client = new WebsocketClient(url)
@@ -30,10 +29,13 @@ namespace lok_wss
                     ErrorReconnectTimeout = TimeSpan.FromSeconds(5)
 
                 };
+                
                 client.ReconnectionHappened.Subscribe(_ =>
                 {
                     CustomConsole.WriteLine($"[Connection] {_.Type}", ConsoleColor.Cyan);
                 });
+
+
                 _ = client.MessageReceived.Subscribe(msg =>
                 {
                     string message = msg.Text;
@@ -47,6 +49,7 @@ namespace lok_wss
                     }
                     if (!string.IsNullOrEmpty(parse["sid"]?.ToString()))
                     {
+
                         CustomConsole.WriteLine("[Message] " + msg, ConsoleColor.DarkGray);
                         Task.Run(() => client.Send("40"));
                     }
@@ -57,32 +60,20 @@ namespace lok_wss
                         if (mapObjects != null && mapObjects.objects != null && mapObjects.objects.Count != 0)
                         {
                             CustomConsole.WriteLine($"[Objects] c{thisContinent}: " + mapObjects.objects?.Count + " Objects received", ConsoleColor.Green);
-
                             List<Models.Object> crystalMines = mapObjects.objects.Where(x => x.code.ToString() == "20100105").ToList();
                             if (crystalMines.Count >= 1)
-                            {
-                                CustomConsole.WriteLine(
-                                    $"[CMines] c{thisContinent}: " + crystalMines.Count + " received",
-                                    ConsoleColor.White);
-
                                 Helpers.ParseObjects("cmines", crystalMines, thisContinent);
-                            }
 
                             List<Object> treasureGoblins = mapObjects.objects.Where(x => x.code.ToString() == "20200104").ToList();
                             if (treasureGoblins.Count >= 1)
-                            {
-                                CustomConsole.WriteLine($"[Goblins] c{thisContinent}: " + treasureGoblins.Count + " received", ConsoleColor.White);
-
                                 Helpers.ParseObjects("goblins", treasureGoblins, thisContinent);
-                            }
-                               
                         }
                     }
 
                 });
                 client.Start();
-                _c14Timer = new Timer(
-                    _ => SendRequest(client, thisContinent, _c14Timer, exitEvent),
+                _c24Timer = new Timer(
+                    _ => SendRequest(client, thisContinent, _c24Timer, exitEvent),
                     null,
                     TimeSpan.FromSeconds(5),
                     TimeSpan.FromSeconds(5));
@@ -93,7 +84,7 @@ namespace lok_wss
             catch (Exception ex)
             {
 
-                Discord.logError("C14", ex);
+                Discord.logError("C24", ex);
             }
         }
 
@@ -104,7 +95,7 @@ namespace lok_wss
             int count = 9;
             string zones = "";
             Random rand = new();
-            if (!string.IsNullOrEmpty(_leaveZones))
+            if (!string.IsNullOrEmpty(LeaveZones))
             {
                 Task.Run(() =>
                     client.Send("42[\"/zone/leave/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
@@ -119,13 +110,12 @@ namespace lok_wss
             }
 
             zones = zones.Substring(0, zones.Length - 1);
-            _leaveZones = zones;
+            LeaveZones = zones;
 
             Task.Run(() =>
                 client.Send("42[\"/zone/enter/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + zones +
                             "]\"}]"));
             CustomConsole.WriteLine($"[Requested] {continent}: {zones}", ConsoleColor.Yellow);
-
 
         }
     }
