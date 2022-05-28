@@ -87,7 +87,7 @@ namespace lok_wss
             }
             catch (Exception ex)
             {
-                Discord.logError("CVC", ex);
+                DiscordWebhooks.logError("CVC", ex);
             }
         }
 

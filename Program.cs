@@ -15,28 +15,16 @@ namespace lok_wss
             _services = ConfigureServices();
 
 
-            Thread c14Thread = new(C14.C14Scan);
-            c14Thread.Start();
+            Thread c15Thread = new Thread(() => c15.c15Scan(15));
+            c15Thread.Start();
 
-            Thread c24Thread = new(C24.C24Scan);
+            Thread c24Thread = new Thread(() => c15.c15Scan(24));
             c24Thread.Start();
 
 
-            //Thread cvcThread = new(CVC.CVCScan);
-            //cvcThread.Start();
-            // Start secondary thread  
 
-            var thread = new Thread(
-                // ReSharper disable once FunctionNeverReturns
-                () =>
-                {
-                    while (true)
-                    {
 
-                        Thread.Sleep(300000);
-                    }
-                }
-                    );
+            var thread = new Thread(() =>{while (true){Thread.Sleep(300000);}});
             thread.Start();
         }
 

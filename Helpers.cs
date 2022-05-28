@@ -2,40 +2,38 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using lok_wss.database.Models;
+using Object = lok_wss.Models.Object;
 
 namespace lok_wss
 {
-    class Helpers
+    internal class Helpers
     {
-        public static async void ParseObjects(string type, IEnumerable<Models.Object> objects, int thisContinent)
+        public static async void ParseObjects(string type, IEnumerable<Object> objects, int thisContinent)
         {
-            checkObjects(objects.ToList(), thisContinent.ToString());
+            //checkObjects(objects.ToList(), thisContinent.ToString());
 
-            foreach (var gameObject in objects)
+            foreach (Object gameObject in objects)
             {
-
                 try
                 {
-                    using (var _context = new lokContext())
+                    using (lokContext context = new())
                     {
-
                         string location = gameObject.loc[1] + ":" + gameObject.loc[2];
                         switch (type)
                         {
                             case "cmines":
-                                if (_context.crystalMine.Any(x => x.id == gameObject._id))
+                                if (context.crystalMine.Any(x => x.id == gameObject._id))
                                 {
-                                    var storedCMine = _context.crystalMine.AsQueryable().Where(s => s.id == gameObject._id)
+                                    crystalMine storedCMine = context.crystalMine.AsQueryable()
+                                        .Where(s => s.id == gameObject._id)
                                         .OrderByDescending(x => x.found).ToList()[0];
-                                    var timeBetween = (DateTime.UtcNow - storedCMine.found).TotalHours;
-                                    if (timeBetween <= 3)
-                                    {
-                                        continue;
-                                    }
+                                    double timeBetween = (DateTime.UtcNow - storedCMine.found).TotalHours;
+                                    if (timeBetween <= 3) continue;
                                 }
-                                _context.crystalMine.Add(new crystalMine()
+
+                                context.crystalMine.Add(new crystalMine
                                 {
                                     id = gameObject._id,
                                     continent = $"{thisContinent}",
@@ -45,18 +43,19 @@ namespace lok_wss
                                 });
 
                                 if (gameObject.occupied == null)
-                                    Discord.PostToDiscordCmine(thisContinent, gameObject.code.ToString(), location,
-                                        gameObject.level.ToString(), gameObject.param.value.ToString());
+                                {
+                                    DiscordWebhooks.PostToDiscordCmine(thisContinent, gameObject.code.ToString(),
+                                        location,
+                                        gameObject.level.ToString(), gameObject.param.value.ToString(), underKingdom(gameObject));
+                                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                                }
 
-                                await _context.SaveChangesAsync();
+                                await context.SaveChangesAsync();
 
                                 break;
                             case "goblins":
-                                if (_context.treasureGoblin.Any(x => x.id == gameObject._id))
-                                {
-                                    continue;
-                                }
-                                _context.treasureGoblin.Add(new treasureGoblin()
+                                if (context.treasureGoblin.Any(x => x.id == gameObject._id)) continue;
+                                context.treasureGoblin.Add(new treasureGoblin
                                 {
                                     id = gameObject._id,
                                     continent = $"{thisContinent}",
@@ -66,41 +65,117 @@ namespace lok_wss
                                 });
 
                                 if (gameObject.occupied == null)
-                                    Discord.PostToDiscordGoblins(thisContinent, gameObject.code.ToString(), location,
+                                {
+                                    DiscordWebhooks.PostToDiscordGoblins(thisContinent, gameObject.code.ToString(),
+                                        location,
                                         gameObject.level.ToString(), gameObject.param.value.ToString());
+                                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                                }
 
-                                await _context.SaveChangesAsync();
+
+                                await context.SaveChangesAsync();
                                 break;
 
-                            case "magdar":
-                                Discord.PostToDiscordMagdar(thisContinent, gameObject.code.ToString(), location,
-                                        gameObject.level.ToString(), gameObject.param.value.ToString());
-                                    break;
+                            case "deathkar":
+                                if (context.deathkar.Any(x => x.id == gameObject._id)) continue;
+                                context.treasureGoblin.Add(new treasureGoblin
+                                {
+                                    id = gameObject._id,
+                                    continent = $"{thisContinent}",
+                                    found = DateTime.UtcNow,
+                                    location = location,
+                                    uguid = Guid.NewGuid()
+                                });
 
+                                if (gameObject.occupied == null && gameObject.level >= 5)
+                                {
+                                    DiscordWebhooks.PostToDiscordDeathkar(thisContinent, gameObject.code.ToString(),
+                                        location,
+                                        gameObject.level.ToString(), gameObject.param.value.ToString(), underKingdom(gameObject));
+                                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                                }
+
+
+                                await context.SaveChangesAsync();
+                                break;
                         }
                     }
                 }
                 catch (Exception e)
                 {
-                    Discord.logError("parse Objects", e);
+                    DiscordWebhooks.logError("parse Objects", e);
                 }
-
             }
+        }
 
+
+        public static async void ParseKingdoms(List<Object> kingdoms)
+        {
+            foreach (Object kingdom in kingdoms)
+            {
+                try
+                {
+                    await using (lokContext context = new())
+                    {
+                        string location = kingdom.loc[1] + ":" + kingdom.loc[2];
+
+                        var exists = context.kingdoms.FirstOrDefault(x => x.Id == kingdom.occupied.id);
+                        if (exists != null)
+                        {
+                            exists.Location = location;
+                            exists.LastSeen = DateTime.UtcNow;
+                            exists.CastleLevel = kingdom.level;
+                            exists.Alliance = kingdom.occupied.allianceTag;
+
+                            await context.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            context.kingdoms.Add(new kingdomItem
+                            {
+                                Id = kingdom.occupied.id,
+                                Name = kingdom.occupied.name,
+                                CastleLevel = kingdom.level,
+                                Alliance = kingdom.occupied.allianceTag,
+                                Location = location,
+                                DateStarted = kingdom.occupied.started,
+                                LastSeen = DateTime.UtcNow
+                            });
+                            await context.SaveChangesAsync();
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    DiscordWebhooks.logError("parse Objects", e);
+                }
+            }
+        }
+
+        public static bool underKingdom(Models.Object gameObject)
+        {
+            using (lokContext context = new())
+            {
+                var objectLocation = gameObject.loc[1] + ":" + gameObject.loc[2];
+                var exists = context.kingdoms.FirstOrDefault(x => x.Location == objectLocation);
+
+                if(exists != null) return true;
+            }
+            return false;
         }
 
 
         public static string ExtractJson(string source)
         {
-            var buffer = new StringBuilder();
-            var depth = 0;
+            StringBuilder buffer = new StringBuilder();
+            int depth = 0;
 
             // We trust that the source contains valid json, we just need to extract it.
             // To do it, we will be matching curly braces until we even out.
-            for (var i = 0; i < source.Length; i++)
+            for (int i = 0; i < source.Length; i++)
             {
-                var ch = source[i];
-                var chPrv = i > 0 ? source[i - 1] : default;
+                char ch = source[i];
+                char chPrv = i > 0 ? source[i - 1] : default;
 
                 buffer.Append(ch);
 
@@ -120,11 +195,11 @@ namespace lok_wss
 
         public static double GetDistance(double x1, double y1, double x2, double y2)
         {
-            return Math.Sqrt(Math.Pow((x2 - x1), 2) + Math.Pow((y2 - y1), 2));
+            return Math.Sqrt(Math.Pow(x2 - x1, 2) + Math.Pow(y2 - y1, 2));
         }
 
 
-        public static void checkObjects(List<Models.Object> mapObjects, string thisContinent)
+        public static void CheckObjects(List<Object> mapObjects, string thisContinent)
         {
             var objects = mapObjects;
 
@@ -137,7 +212,7 @@ namespace lok_wss
             var player = objects.Where(x => x.code.ToString() == "20300101");
 
             var allianceCenter = objects.Where(x => x.code.ToString() == "20600101");
-            var allianceTower =objects.Where(x => x.code.ToString() == "20600102");
+            var allianceTower = objects.Where(x => x.code.ToString() == "20600102");
             var allianceOutpost = objects.Where(x => x.code.ToString() == "20600103");
 
             var shrine1 = objects.Where(x => x.code.ToString() == "20400101");
@@ -165,7 +240,7 @@ namespace lok_wss
             var cvcCyclops = objects.Where(x => x.code.ToString() == "20700407");
 
 
-            var cvcMagdar = objects.Where(x => x.code.ToString() == "20700505");
+            //var cvcMagdar = objects.Where(x => x.code.ToString() == "20700505");
 
 
             var charmStone = objects.Where(x => x.code.ToString() == "20500101");
@@ -209,11 +284,8 @@ namespace lok_wss
                 .Except(cvcCyclops)
                 .Where(x => x.code != 0).ToList();
 
-           
 
-
-            foreach (var unknownObject in whatsLeft)
-            {
+            foreach (Object unknownObject in whatsLeft)
                 switch (unknownObject.level)
                 {
                     case 1:
@@ -223,10 +295,6 @@ namespace lok_wss
 
                         break;
                 }
-            }
-
-
         }
-
     }
 }
