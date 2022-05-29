@@ -9,28 +9,19 @@ namespace lok_wss
         //private static lokContext _context;
         private static IServiceProvider _services;
 
-
         private static void Main()
         {
             _services = ConfigureServices();
 
-
-            Thread c15Thread = new Thread(() => c15.c15Scan(15));
+            Thread c15Thread = new Thread(() => new ContinentScanner(15));
             c15Thread.Start();
 
-            Thread c24Thread = new Thread(() => c15.c15Scan(24));
+            Thread c24Thread = new Thread(() => new ContinentScanner(24));
             c24Thread.Start();
 
-
-
-
-            var thread = new Thread(() =>{while (true){Thread.Sleep(300000);}});
+            var thread = new Thread(() => { while (true) { Thread.Sleep(300000); } });
             thread.Start();
         }
-
-
-
-
 
         private static IServiceProvider ConfigureServices()
         {
@@ -41,10 +32,6 @@ namespace lok_wss
         }
     }
 }
-
-
-
-
 
 //foreach (var goblin in goblins)
 //{
@@ -64,10 +51,6 @@ namespace lok_wss
 //            goblin.level.ToString(), goblin.param.value.ToString());
 //    }
 //}#
-
-
-
-
 
 //private static void C24()
 //{
@@ -139,16 +122,13 @@ namespace lok_wss
 //    }
 //}
 
-
 //private static void MyMethod(WebsocketClient client, int continent, Timer timer, ManualResetEvent exitEvent)
 //{
-
 //    int count = 40;
 //    int startCount = 2000;
 //    int endCount = 2040;
 //    int iterations = 1;
 //    string zones = "";
-
 
 //    if (killThread)
 //    {
@@ -159,12 +139,10 @@ namespace lok_wss
 //    }
 //    if (client.IsRunning)
 //    {
-
 //        for (int i = 0; i < 50; i++)
 //        {
 //            for (int y = startCount; y < endCount; y++)
 //            {
-
 //                zones += $"{y},";
 //            }
 //            zones = zones.Substring(0, zones.Length - 1);
@@ -179,6 +157,4 @@ namespace lok_wss
 
 //    }
 
-
 //}
-

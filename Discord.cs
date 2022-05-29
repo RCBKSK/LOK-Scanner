@@ -274,7 +274,7 @@ namespace lok_wss
             }
         }
 
-        public static async void logError(string postType, Exception e)
+        public static void logError(string postType, Exception e)
         {
             try
             {

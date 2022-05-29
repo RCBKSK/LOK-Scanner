@@ -1,26 +1,28 @@
-﻿using Newtonsoft.Json;
+﻿using AutoMapper;
+using lok_wss.database.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Buffers.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AutoMapper;
-using lok_wss.database.Models;
 using Websocket.Client;
 using Object = lok_wss.Models.Object;
 
 namespace lok_wss
 {
-    public static class c15
+    public class ContinentScanner
     {
         private static Timer _c15Timer;
         private static string _leaveZones = "";
         public static bool _runOnce = false;
         public static Mapper mapper;
-        public static void c15Scan(int continent)
+        private int runningCount;
+
+        public ContinentScanner(int continent)
         {
+            runningCount = 1;
             var config = new MapperConfiguration(cfg =>
                 cfg.CreateMap<Object, Kingdom>()
             );
@@ -30,7 +32,6 @@ namespace lok_wss
             int thisContinent = continent;
             try
             {
-
                 var exitEvent = new ManualResetEvent(false);
                 var url = new Uri("wss://socf-lok-live.leagueofkingdoms.com/socket.io/?EIO=4&transport=websocket");
                 using var client = new WebsocketClient(url)
@@ -38,7 +39,6 @@ namespace lok_wss
                     ReconnectTimeout = TimeSpan.FromSeconds(30),
                     IsReconnectionEnabled = true,
                     ErrorReconnectTimeout = TimeSpan.FromSeconds(5)
-
                 };
                 client.ReconnectionHappened.Subscribe(_ =>
                 {
@@ -50,10 +50,9 @@ namespace lok_wss
                     string json = "";
                     JObject parse = new();
 
-                    CustomConsole.WriteLine(
-                        $"[Field Enter] c{thisContinent}: " + (message.Length >= 90 ? message.Substring(0, 90) : message),
-                        ConsoleColor.Green);
-
+                    //CustomConsole.WriteLine(
+                    //    $"[Field Enter] c{thisContinent}: " + (message.Length >= 90 ? message.Substring(0, 90) : message),
+                    //    ConsoleColor.Green);
 
                     if (message == "40")
                     {
@@ -61,16 +60,13 @@ namespace lok_wss
                         var base64FieldEnter = "42[\"/field/enter/v3\",\"" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(fieldEnter)) + "\"]";
                         Task.Run(() =>
                             client.Send(base64FieldEnter));
-                        CustomConsole.WriteLine($"[Requested] c{continent}: Field Enter", ConsoleColor.Yellow);
+                        //CustomConsole.WriteLine($"[Requested] c{continent}: Field Enter", ConsoleColor.Yellow);
                     }
-
 
                     if (message.Contains("/field/objects/v3"))
                     {
                         var enc = message.Split(",")[1];
                         var dec = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(enc.Substring(1, enc.Length - 3)));
-
-
 
                         var mapObjects = JsonConvert.DeserializeObject<Models.Root>(dec);
 
@@ -102,7 +98,6 @@ namespace lok_wss
                                 Helpers.ParseObjects("goblins", treasureGoblins, thisContinent);
                             }
 
-                            
                             List<Object> dKs = mapObjects.objects
                                 .Where(x => x.code.ToString() == "20200201").ToList();
                             if (dKs.Count >= 1)
@@ -120,12 +115,9 @@ namespace lok_wss
                             {
                                 Helpers.ParseKingdoms(kingdoms);
                             }
-
                         }
-
-
                     }
-                    
+
                     if (message.Contains("/field/enter/v3"))
                     {
                         var enc = message.Split(",")[1];
@@ -137,53 +129,38 @@ namespace lok_wss
                             null,
                             TimeSpan.FromSeconds(5),
                             TimeSpan.FromSeconds(3));
-
                     }
-
-                 
-
 
                     if (message.Contains("{"))
                     {
                         json = Helpers.ExtractJson(message[message.IndexOf("{", StringComparison.Ordinal)..]);
                         parse = JObject.Parse(json);
                     }
-
                 });
                 client.Start();
-
-
 
                 exitEvent.WaitOne();
             }
             catch (Exception ex)
             {
-
                 DiscordWebhooks.logError("c15", ex);
             }
         }
 
-
-        private static void SendRequest(WebsocketClient client, int continent, Timer timer, ManualResetEvent exitEvent)
+        private void SendRequest(WebsocketClient client, int continent, Timer timer, ManualResetEvent exitEvent)
         {
-            if (!_runOnce)
-            {
-                _runOnce = true;
-
-                
-            }
             int count = 9;
             string zones = "";
             Random rand = new();
             var leaveZoneCommand = "42[\"/zone/leave/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + _leaveZones + "]\"}]";
             Task.Run(() => client.Send(leaveZoneCommand));
-            CustomConsole.WriteLine($"[LeaveZones] {continent}: {leaveZoneCommand}", ConsoleColor.Yellow);
-
+            //CustomConsole.WriteLine($"[LeaveZones] {continent}: {leaveZoneCommand}", ConsoleColor.Yellow);
 
             for (int i = 0; i < count; i++)
             {
-                int number = rand.Next(1, 4090);
+                int number = runningCount++;
                 zones += $"{number},";
+                if (runningCount >= 4080) runningCount = 1;
             }
 
             zones = zones.Substring(0, zones.Length - 1);
@@ -194,9 +171,7 @@ namespace lok_wss
 
             Task.Run(() => client.Send(command));
 
-            CustomConsole.WriteLine($"[Requested] {continent}: {command}", ConsoleColor.Yellow);
-
-
+            CustomConsole.WriteLine($"[Requested] {continent}: {zones}", ConsoleColor.Yellow);
         }
     }
 }
