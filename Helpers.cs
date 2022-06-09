@@ -6,6 +6,7 @@ using System.Threading;
 using lok_wss.database.Models;
 using Object = lok_wss.Models.Object;
 
+
 namespace lok_wss
 {
     internal class Helpers
@@ -92,6 +93,31 @@ namespace lok_wss
                                     DiscordWebhooks.PostToDiscordDeathkar(thisContinent, gameObject.code.ToString(),
                                         location,
                                         gameObject.level.ToString(), gameObject.param.value.ToString(), underKingdom(gameObject));
+                                    Thread.Sleep(TimeSpan.FromSeconds(1));
+                                }
+
+
+                                await context.SaveChangesAsync();
+                                break;
+
+
+                            case "spartoi":
+                                if (context.spartoi.Any(x => x.id == gameObject._id)) continue;
+                                context.spartoi.Add(new spartoi
+                                {
+                                    id = gameObject._id,
+                                    continent = $"{thisContinent}",
+                                    found = DateTime.UtcNow,
+                                    location = location,
+                                    uguid = Guid.NewGuid()
+                                });
+
+                                if (gameObject.occupied == null && gameObject.level >= 5)
+                                {
+                                    DiscordWebhooks.PostToDiscordSpartoi(thisContinent, gameObject.code.ToString(),
+                                        location,
+                                        gameObject.level.ToString(), 
+                                        gameObject.param.value.ToString());
                                     Thread.Sleep(TimeSpan.FromSeconds(1));
                                 }
 
@@ -204,6 +230,7 @@ namespace lok_wss
             var objects = mapObjects;
 
             var deathkar = objects.Where(x => x.code.ToString() == "20200201");
+            var cvcSpartoi = objects.Where(x => x.code.ToString() == "20700506");
             var greenDrag = objects.Where(x => x.code.ToString() == "20200202");
             var redDrag = objects.Where(x => x.code.ToString() == "20200203");
             var goldDrag = objects.Where(x => x.code.ToString() == "20200204");
@@ -227,9 +254,12 @@ namespace lok_wss
             var goldMine = objects.Where(x => x.code.ToString() == "20100104");
             var cMine = objects.Where(x => x.code.ToString() == "20100105");
 
-            //var cvcFarm = objects.Where(x => x.code.ToString() == "20700405");
-            //var cvcLumber = objects.Where(x => x.code.ToString() == "20700602");
-            //var cvcQuarry = objects.Where(x => x.code.ToString() == "20700603");
+            var cvcOgre = objects.Where(x => x.code.ToString() == "20700405");
+            var cvcWolf = objects.Where(x => x.code.ToString() == "20700406");
+
+            var cvcFarm = objects.Where(x => x.code.ToString() == "20700601");
+            var cvcLumber = objects.Where(x => x.code.ToString() == "20700602");
+            var cvcQuarry = objects.Where(x => x.code.ToString() == "20700603");
             var cvcGoldMine = objects.Where(x => x.code.ToString() == "20700604");
 
             var orc = objects.Where(x => x.code.ToString() == "20200101");
@@ -277,24 +307,19 @@ namespace lok_wss
                 .Except(charmLumber)
                 .Except(charmLoad)
                 .Except(cMine)
-                //.Except(cvcFarm)
-                //.Except(cvcLumber)
-                //.Except(cvcQuarry)
+                .Except(cvcFarm)
+                .Except(cvcLumber)
+                .Except(cvcQuarry)
                 .Except(cvcGoldMine)
                 .Except(cvcCyclops)
+                .Except(cvcOgre)
+                .Except(cvcWolf)
+                .Except(cvcSpartoi)
                 .Where(x => x.code != 0).ToList();
 
-
+            
             foreach (Object unknownObject in whatsLeft)
-                switch (unknownObject.level)
-                {
-                    case 1:
-                    case 2:
-                    case 3:
-                        //Discord.PostToDiscordUnknown(thisContinent, unknownObject.code.ToString(), unknownObject.loc[1] + ":" + unknownObject.loc[2], unknownObject.level.ToString(), unknownObject.param.value.ToString());
-
-                        break;
-                }
+                DiscordWebhooks.PostToDiscordUnknown(thisContinent, unknownObject.code.ToString(), unknownObject.loc[1] + ":" + unknownObject.loc[2], unknownObject.level.ToString(), unknownObject.param.value.ToString());
         }
     }
 }

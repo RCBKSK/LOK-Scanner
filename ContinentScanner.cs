@@ -19,10 +19,12 @@ namespace lok_wss
         public static bool _runOnce = false;
         public static Mapper mapper;
         private int runningCount;
+        private static bool _isCVC = false;
 
-        public ContinentScanner(int continent)
+        public ContinentScanner(int continent, bool isCVC = false)
         {
             runningCount = 1;
+            _isCVC = isCVC;
             var config = new MapperConfiguration(cfg =>
                 cfg.CreateMap<Object, Kingdom>()
             );
@@ -56,7 +58,7 @@ namespace lok_wss
 
                     if (message == "40")
                     {
-                        var fieldEnter = "{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MjIxZTZjNTVjZjkwZjEwMGRhYTEyYzMiLCJraW5nZG9tSWQiOiI2MjIxZTZjNjVjZjkwZjEwMGRhYTEyYzQiLCJ2ZXJzaW9uIjoxNDQ3LCJ0aW1lIjoxNjUzNzc5ODAyNjAxLCJpYXQiOjE2NTM3Nzk4MDIsImV4cCI6MTY1NDM4NDYwMiwiaXNzIjoibm9kZ2FtZXMuY29tIiwic3ViIjoidXNlckluZm8ifQ.Bytc5pkx-KGDFrxK8Y7k__bPjdI9GxOjgQrbD90tsbc\"}";
+                        var fieldEnter = "{\"token\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2MjIxZTZjNTVjZjkwZjEwMGRhYTEyYzMiLCJraW5nZG9tSWQiOiI2MjIxZTZjNjVjZjkwZjEwMGRhYTEyYzQiLCJ2ZXJzaW9uIjoxNDYyLCJ0aW1lIjoxNjU0Njg5NDQ5ODAzLCJpYXQiOjE2NTQ2ODk0NDksImV4cCI6MTY1NTI5NDI0OSwiaXNzIjoibm9kZ2FtZXMuY29tIiwic3ViIjoidXNlckluZm8ifQ.DuhCennDckCsBiJDRMb9fgCSaR5MSjapd-5btYEUOpA\"}";
                         var base64FieldEnter = "42[\"/field/enter/v3\",\"" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(fieldEnter)) + "\"]";
                         Task.Run(() =>
                             client.Send(base64FieldEnter));
@@ -115,6 +117,28 @@ namespace lok_wss
                             {
                                 Helpers.ParseKingdoms(kingdoms);
                             }
+
+                            if(isCVC)
+                            {
+                                List<Object> magdar = mapObjects.objects.Where(x => x.code.ToString() == "20700505").ToList();
+                                if (magdar.Count >= 1)
+                                    Helpers.ParseObjects("magdar", magdar, thisContinent);
+
+
+                                List<Object> spartoi = mapObjects.objects.Where(x => x.code.ToString() == "20700506").ToList();
+                                if (spartoi.Count >= 1)
+                                {
+                                    CustomConsole.WriteLine(
+                                   $"[Spartoi] c{thisContinent}: " + spartoi.Count + " received",
+                                        ConsoleColor.White);
+                                    Helpers.ParseObjects("spartoi", spartoi, thisContinent);
+                                }
+
+
+                                //Helpers.CheckObjects(mapObjects.objects, thisContinent.ToString());
+
+                            }
+
                         }
                     }
 
@@ -143,7 +167,7 @@ namespace lok_wss
             }
             catch (Exception ex)
             {
-                DiscordWebhooks.logError("c15", ex);
+                DiscordWebhooks.logError($"C{thisContinent}", ex);
             }
         }
 
@@ -154,13 +178,24 @@ namespace lok_wss
             Random rand = new();
             var leaveZoneCommand = "42[\"/zone/leave/list/v2\", {\"world\":" + continent + ", \"zones\":\"[" + _leaveZones + "]\"}]";
             Task.Run(() => client.Send(leaveZoneCommand));
-            //CustomConsole.WriteLine($"[LeaveZones] {continent}: {leaveZoneCommand}", ConsoleColor.Yellow);
 
-            for (int i = 0; i < count; i++)
+            if (continent == 100002)
             {
-                int number = runningCount++;
-                zones += $"{number},";
-                if (runningCount >= 4080) runningCount = 1;
+
+                for (int i = 0; i < count; i++)
+                {
+                    int number = rand.Next(3200, 4090);
+                    zones += $"{number},";
+                }
+            }
+            else
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    int number = runningCount++;
+                    zones += $"{number},";
+                    if (runningCount >= 4080) runningCount = 1;
+                }
             }
 
             zones = zones.Substring(0, zones.Length - 1);

@@ -26,7 +26,7 @@ namespace lok_wss
                     continentUrl = "https://discord.com/api/webhooks/948951511591960657/YsaTGH9ffYRMHgut6QX1tfjJJjB2Z9d9M_ACVXDiLaouF47yHMsvXt9jWT89Eg4VshmA";
                     break;
                 case 100002:
-                    continentUrl = "https://discord.com/api/webhooks/952324290328543322/Bc-jclcKlot84Sf2_lHPQokkmSy0yb6lNyvyDoEU6KqkAAm_Kne85iBmP1jCHmJNjcGK";
+                    continentUrl = "https://discord.com/api/webhooks/984059380666368022/CewSXUR0zwvtoNxn-f2MtA6M1jGIKkCVdzdEzuo0Awnir1zKuhvUjKojQL9RraKY1BVL";
                     break;
             }
             try
@@ -67,7 +67,15 @@ namespace lok_wss
                                 embed.AddField(detailFieldLevel).AddField(detailFieldCoords).AddField(detailFieldDistance);
                                 break;
                             }
-                        
+                        case 100002:
+                            {
+                                var distance = string.Format("{0:0}", Helpers.GetDistance(400, 1800, double.Parse(coords.Split(":")[0]),
+                                    double.Parse(coords.Split(":")[1])));
+                                EmbedFieldBuilder detailFieldDistance = new() { IsInline = true, Name = "Distance from 15 gate 2", Value = distance + "km" };
+                                embed.AddField(detailFieldLevel).AddField(detailFieldCoords).AddField(detailFieldDistance);
+                                break;
+                            }
+
                     }
 
                     if (continent == 100002 && (int.Parse(coords.Split(":")[0]) > 400 || int.Parse(coords.Split(":")[1]) < 1600))
@@ -95,7 +103,7 @@ namespace lok_wss
             switch (continent)
             {
                 case 100002:
-                    continentUrl = "https://discord.com/api/webhooks/956520018248630352/vgU1tztTL1yK1hlI_hhHvaVdy7k6HAGFQCTL0GHoT_dQPfMrtG1teCJ5DgOeGPQ_93Jt";
+                    continentUrl = "https://discord.com/api/webhooks/984060893908332555/noH-eIHMO0gPLbMTowGjVS7pIdeAY2A9XYFACbV0475rq9b1o0J9pj-pX8Zp2QUV50va";
                     break;
             }
             try
@@ -234,13 +242,65 @@ namespace lok_wss
             }
         }
 
+        public static async void PostToDiscordSpartoi(int continent, string name, string coords, string level, string value)
+        {
+            var continentUrl = "";
+            switch (continent)
+            {
+                case 100002:
+                    continentUrl = "https://discord.com/api/webhooks/984184806130720778/-OWu_Udtuu_ZGrgt3iVN-glZNT9AXe8iSTkm74kEKqDCAhzw0lVTksEw5VowsK_Mbsak";
+                    break;
+            }
+            try
+            {
+                using (DiscordWebhookClient client = new(
+                continentUrl)) //holdnut uoa
+                {
+                 
+
+
+                    EmbedFieldBuilder detailFieldLevel = new() { IsInline = true, Name = "Level", Value = level };
+                    EmbedFieldBuilder detailFieldHealth = new() { IsInline = true, Name = "Health", Value = value };
+                    var distance = $"{Helpers.GetDistance(423, 1626, double.Parse(coords.Split(":")[0]), double.Parse(coords.Split(":")[1])):0}";
+                    EmbedFieldBuilder detailFieldDistance = new() { IsInline = true, Name = "Distance from AC", Value = distance + "km" };
+
+
+                    EmbedBuilder embed = new EmbedBuilder()
+                    {
+                        Title = $"L{level} Spartoi",
+                        Description = coords,
+                        ThumbnailUrl = "https://64.media.tumblr.com/52771835de8f34d14f3487ef532e8c41/tumblr_ooxfdsVdr01vw5i2lo1_640.jpg",
+                        Footer = new EmbedFooterBuilder()
+                        {
+                            Text = $"Found at {DateTime.UtcNow:HH:mm} UTC"
+                        }
+                    }
+                     .AddField(detailFieldLevel)
+                     .AddField(detailFieldHealth)
+                     .AddField(detailFieldDistance); ;
+
+
+                    if (continent == 100002 && (int.Parse(coords.Split(":")[0]) < 400 || int.Parse(coords.Split(":")[0]) > 800 || int.Parse(coords.Split(":")[1]) < 1600 ))
+                    {
+                        return;
+                    }
+                    await client.SendMessageAsync("", embeds: new[] { embed.Build() });
+
+
+                }
+            }
+            catch (Exception e)
+            {
+                logError("postDiscordSpartoi", e);
+            }
+        }
 
 
         public static async void PostToDiscordUnknown(string continent, string name, string coords, string level, string value)
         {
             try
             {
-                var continentUrl = "https://discord.com/api/webhooks/955230201296597032/aOX-vm8vbqMFlCKEUq77N1Hxhpb6WGgiyLO0ZD1IDUHzMcu9lWefnla-HenEucuE-Ixr";
+                var continentUrl = "https://discord.com/api/webhooks/984179932538208256/QtkkTKXrztsJVyaqPkbqv0wt8eRxT2CarUQew3BUl6AJFnWGOSUvrNOV0Gvxgz3TdIwb";
 
 
                 using (DiscordWebhookClient client = new(
